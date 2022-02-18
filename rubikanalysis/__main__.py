@@ -1,61 +1,44 @@
-import argparse  # pragma: no cover
+import argparse
 
-from . import BaseClass, base_function  # pragma: no cover
+from . import Preprocess
 
 
-def main() -> None:  # pragma: no cover
+def preprocess_main(args):
+    preprocess = Preprocess(args.metrics, args.qos, args.output)
+    preprocess.execute()
+
+
+def main() -> None:
     """
     The main function executes on commands:
     `python -m rubikanalysis` and `$ rubikanalysis `.
 
     This is your program's entry point.
-
-    You can change this function to do whatever you want.
-    Examples:
-        * Run a test suite
-        * Run a server
-        * Do some other stuff
-        * Run a command line application (Click, Typer, ArgParse)
-        * List all available tasks
-        * Run an application (Flask, FastAPI, Django, etc.)
     """
     parser = argparse.ArgumentParser(
-        description="rubikanalysis.",
-        epilog="Enjoy the rubikanalysis functionality!",
+        description="A tool for metrics analysis of co-Location container workloads",
+        epilog="Through the software-hardware collaborative analysis method, the application"
+               " characteristics and system-level characteristics of load execution under the"
+               " conditions of differnet configurations of clusters and different co-location"
+               " modes are studied to guide the resource planning and scheduling management of"
+               " cloud clusters",
     )
-    # This is required positional argument
-    parser.add_argument(
-        "name",
-        type=str,
-        help="The username",
-        default="JingWoo",
-    )
-    # This is optional named argument
-    parser.add_argument(
-        "-m",
-        "--message",
-        type=str,
-        help="The Message",
-        default="Hello",
-        required=False,
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Optionally adds verbosity",
-    )
+
+    subparsers = parser.add_subparsers()
+    # # create the parser for the "preprocess" command
+    parser_preprocess = subparsers.add_parser(
+        'preprocess', help='Indicator data preprocessing')
+    parser_preprocess.add_argument(
+        '-m', "--metrics", type=str, help='Low level metrics', required=True)
+    parser_preprocess.add_argument(
+        '-q', "--qos", type=str, help='High level SLAs', required=True)
+    parser_preprocess.add_argument(
+        '-o', "--output", type=str, help='Preprocessed merged file', required=True)
+    parser_preprocess.set_defaults(func=preprocess_main)
+
     args = parser.parse_args()
-    print(f"{args.message} {args.name}!")
-    if args.verbose:
-        print("Verbose mode is on.")
-
-    print("Executing main function")
-    base = BaseClass()
-    print(base.base_method())
-    print(base_function())
-    print("End of main function")
+    args.func(args)
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     main()
