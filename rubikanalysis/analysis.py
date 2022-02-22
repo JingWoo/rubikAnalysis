@@ -92,8 +92,8 @@ hover = alt.selection_single(
 )
 
 lines = (
-    alt.Chart(source.reset_index().melt("timestamp"),
-              title="Evolution of stock prices")
+    alt.Chart(source.reset_index(drop= True).melt("timestamp"),
+              title="Metrics variation")
     .mark_line()
     .encode(
         x="timestamp:T",
@@ -108,7 +108,8 @@ points = lines.transform_filter(hover).mark_circle(size=65)
 
 # Draw a rule at the location of the selection
 tooltips = (
-    alt.Chart(source)
+    alt.Chart(source.reset_index(drop= True).melt("timestamp"),
+              title="Metrics variation")
     .mark_rule()
     .encode(
         x="timestamp:T",
@@ -123,7 +124,7 @@ tooltips = (
 )
 
 # chart = (lines + points + tooltips).interactive()
-chart = (lines).interactive()
+chart = (lines + points + tooltips).interactive()
 
 
 st.altair_chart(chart, use_container_width=True)
