@@ -150,9 +150,14 @@ st.markdown("### 热力图")
 # spearman相关系数: 非线性的、非正态数据
 # Kendall相关系数:  分类变量、无序数据
 fig, ax = plt.subplots()
-sns.heatmap(metrics.corr(method="pearson"), ax=ax)
+metrics_correlation = metrics.corr(method="pearson")
+
+sns.heatmap(metrics_correlation, ax=ax)
 st.write(fig)
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
+metrics_correlation.iloc[-1] = abs(metrics_correlation.iloc[-1])
+st.table(metrics_correlation.iloc[-1].sort_values(ascending=False))
+
 # fig = sns.pairplot(metrics)
 # st.pyplot(fig)
 st.markdown("### 相关性指标排序")

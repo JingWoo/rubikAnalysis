@@ -25,7 +25,7 @@ def main() -> None:
     )
 
     subparsers = parser.add_subparsers()
-    # # create the parser for the "preprocess" command
+    # create the parser for the "preprocess" command
     parser_preprocess = subparsers.add_parser(
         'preprocess', help='Indicator data preprocessing')
     parser_preprocess.add_argument(
