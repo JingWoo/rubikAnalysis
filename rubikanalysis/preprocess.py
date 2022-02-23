@@ -12,7 +12,7 @@ import sys
 import pandas as pd
 
 
-class Preprocess:
+class Preprocess(object):
     def __init__(self, metrics, qos, output):
         self.metrics = metrics
         self.qos = qos

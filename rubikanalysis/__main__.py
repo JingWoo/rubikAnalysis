@@ -17,11 +17,11 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(
         description="A tool for metrics analysis of co-Location container workloads",
-        epilog="Through the software-hardware collaborative analysis method, the application"
-               " characteristics and system-level characteristics of load execution under the"
-               " conditions of differnet configurations of clusters and different co-location"
-               " modes are studied to guide the resource planning and scheduling management of"
-               " cloud clusters",
+        epilog=("Through the software-hardware collaborative analysis method, the application"
+                " characteristics and system-level characteristics of load execution under the"
+                " conditions of differnet configurations of clusters and different co-location"
+                " modes are studied to guide the resource planning and scheduling management of"
+                " cloud clusters"),
     )
 
     subparsers = parser.add_subparsers()
