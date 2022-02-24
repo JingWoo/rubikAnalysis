@@ -40,6 +40,7 @@ from sklearn import tree
 from sklearn.linear_model import LinearRegression
 from sklearn import metrics
 from enum import unique
+from itertools import product
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -90,6 +91,46 @@ def get_chart(data):
 
     return (lines + points + tooltips).interactive()
 
+def get_stress_chart(data, symbol):
+    hover = alt.selection_single(
+        fields=["stress"],
+        nearest=True,
+        on="mouseover",
+        empty="none",
+    )
+
+    lines = (
+        alt.Chart(data, title="Qos variation with stress " + symbol)
+        .mark_line()
+        .encode(
+            x="stress",
+            y="degradation-percent",
+            color="type",
+            shape="type",
+        )
+    )
+
+    # Draw points on the line, and highlight based on selection
+    points = lines.transform_filter(hover).mark_circle(size=65)
+
+    # Draw a rule at the location of the selection
+    tooltips = (
+        alt.Chart(data)
+        .mark_rule()
+        .encode(
+            x="stress",
+            y="degradation-percent",
+            opacity=alt.condition(hover, alt.value(0.3), alt.value(0)),
+            tooltip=[
+                alt.Tooltip("stress", title="Stress Info"),
+                alt.Tooltip("avg-qos", title="Qos"),
+                alt.Tooltip("degradation-percent", title="Degradation Percent")
+            ],
+        )
+        .add_selection(hover)
+    )
+
+    return (lines + points + tooltips).interactive()
 
 def normalize_table(df):
     cols = list(df)
@@ -148,7 +189,28 @@ source = data[symbols]
 chart = get_chart(source)
 st.altair_chart(chart, use_container_width=True)
 
-st.markdown("## 资源敏感度分析 TODO")
+st.markdown("## 资源敏感度分析")
+
+stress = pd.read_csv("stress.csv", keep_default_na=False)
+stress_all_symbols = ["cpu", "memory", "disk io", "cache", "network"]
+stress_unique_symbols = stress.type.unique()
+
+stress_symbols = []
+for usymbol, asymbol in product(stress_unique_symbols, stress_all_symbols): 
+    if asymbol in usymbol and asymbol not in stress_symbols:
+        stress_symbols.append(asymbol)
+stress_symbols = st.multiselect("Choose metrics to visualize",
+                                stress_symbols, stress_symbols)
+
+# 原始数据加入到每个图中
+for stress_symbol in stress_symbols:
+    stress_source = stress[stress.type.str.contains(stress_symbol)]
+    stress_chart = get_stress_chart(stress_source, stress_symbol)
+    st.altair_chart(stress_chart, use_container_width=True)
+
+st.markdown("#### 资源敏感度排序")
+
+# 资源敏感度排序
 
 st.markdown("## 相关性分析")
 st.markdown("### 热力图")

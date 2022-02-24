@@ -10,7 +10,7 @@ from pydoc import doc
 import time
 import sys
 import pandas as pd
-
+import numpy as np
 
 class Preprocess(object):
     def __init__(self, metrics, qos, output):
@@ -69,3 +69,72 @@ class Preprocess(object):
             diff = sys.maxsize
 
         return broad_tss, narrow_tss
+
+class StressProcess(object):
+    def __init__(self, stress, qos, output):
+        self.stress = stress
+        self.qos = qos
+        self.qos_index = 0
+        self.output = output
+
+    def execute(self) -> None:
+        """
+        Execute Stress Data Process
+        """
+        self.__load_and_generate_output()
+
+    def __load_and_generate_output(self):
+        # begin-timestamp end-timestamp type stress command
+        stress_col_name = ['begin-timestamp', 'end-timestamp', 'type', 'stress', 'command']
+        stress_table = pd.read_table(self.stress, names=stress_col_name, header=0)
+        # timestamp qos
+        qos_col_name = ['timestamp', 'qos']
+        qos_table = pd.read_table(self.qos, names=qos_col_name, header=0)
+
+        qos_len = len(qos_table)
+        output_list = []
+
+        no_stress_qos = self.__get_rangetime_qos(None, stress_table.at[0, 'begin-timestamp'], qos_table)
+        output_list.append({"stress": "no stress", "avg-qos": no_stress_qos})
+
+        for _, row in stress_table.iterrows():
+            if self.qos_index >= qos_len:
+                break
+
+            begin_timestamp = row['begin-timestamp']
+            end_timestamp = row['end-timestamp']
+            average_qos = self.__get_rangetime_qos(begin_timestamp, end_timestamp, qos_table)
+            output_list.append({"type": row['type'], "stress": row['stress'], "avg-qos": average_qos})
+
+        # type stress avg-qos degradation-percent
+        output_table = pd.DataFrame.from_records(output_list, columns=['type', 'stress', 'avg-qos', 'degradation-percent'])
+        output_table['degradation-percent'] = 100 * (output_table['avg-qos'] - no_stress_qos) / no_stress_qos
+        output_table.to_csv(self.output, index=False)
+                
+    def __get_rangetime_qos(self, begin_time, end_time, qos_table):
+        qos_len = len(qos_table)
+        if self.qos_index >= qos_len:
+            return 0
+
+        if begin_time is not None:
+            while self.__compare_stimestamp_gt(begin_time, qos_table.at[self.qos_index, 'timestamp']):
+                self.qos_index += 1
+                if self.qos_index >= qos_len:
+                    return 0
+        begin_index = self.qos_index
+
+        while self.__compare_stimestamp_gt(end_time, qos_table.at[self.qos_index, 'timestamp']):
+            self.qos_index += 1
+            if self.qos_index >= qos_len:
+                break
+        end_index = self.qos_index
+
+        return np.mean(qos_table[begin_index:end_index]["qos"])
+
+    def __compare_stimestamp_gt(self, time1, time2):
+        time1_st = int(time.mktime(time.strptime(
+            time1, "%Y-%m-%d %H:%M:%S")))
+        time2_st = int(time.mktime(time.strptime(
+            time2, "%Y-%m-%d %H:%M:%S")))
+
+        return time1_st > time2_st
