@@ -183,20 +183,72 @@ y = data[["qos"]]
 x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=1)
 
 
+def draw_comparison_altair_chart(y_test, y_pred):
+    y_test_list = y_test["qos"]
+    y_pred_list = y_pred if type(y_pred[0]) is not np.ndarray else [
+        i[0] for i in y_pred]
+    list_of_tuples = list(zip(y_test_list, y_pred_list))
+    source = pd.DataFrame(list_of_tuples, columns=['Measured', 'Predicted'],
+                          index=pd.RangeIndex(len(y_pred), name='index'))
+    source = source.reset_index().melt('index', var_name='category', value_name='qos')
+    nearest = alt.selection(type='single', nearest=True, on='mouseover',
+                            fields=['index'], empty='none')
+    line = alt.Chart(source).mark_line(interpolate='basis').encode(
+        x='index:Q',
+        y='qos:Q',
+        color='category:N'
+    )
+
+    selectors = alt.Chart(source).mark_point().encode(
+        x='index:Q',
+        opacity=alt.value(0),
+    ).add_selection(
+        nearest
+    )
+
+    points = line.mark_point().encode(
+        opacity=alt.condition(nearest, alt.value(1), alt.value(0))
+    )
+
+    # Draw text labels near the points, and highlight based on selection
+    text = line.mark_text(align='left', dx=5, dy=-5).encode(
+        text=alt.condition(nearest, 'qos:Q', alt.value(' '))
+    )
+
+    # Draw a rule at the location of the selection
+    rules = alt.Chart(source).mark_rule(color='gray').encode(
+        x='index:Q',
+    ).transform_filter(
+        nearest
+    )
+    charts = alt.layer(
+        line, selectors, points, rules, text
+    ).properties(
+        width=600, height=300
+    )
+    st.altair_chart(charts, use_container_width=True)
+
+
+def draw_comparison_matplotlib_chart(y_test, y_pred):
+    fig = plt.figure()
+    plt.plot(np.arange(len(y_pred)),
+             y_test[["qos"]].values, 'go-', label='Measured')
+    plt.plot(np.arange(len(y_pred)), y_pred, 'ro-', label='Predicted')
+    plt.title("Interference Model Analysis")
+    plt.xlabel("Index")
+    plt.ylabel("QoS")
+    plt.legend()
+    st.pyplot(fig)
+
+
 def train_and_test_model(model):
     model.fit(x_train, y_train)
     y_pred = model.predict(x_test)
     # score = model.score(x_test, y_test)
     print("MSE:", metrics.mean_squared_error(y_test, y_pred))
     print("RMSE:", np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+    draw_comparison_altair_chart(y_test, y_pred)
 
-    fig = plt.figure()
-    plt.plot(np.arange(len(y_pred)),
-             y_test[["qos"]].values, 'go-', label='Measured')
-    plt.plot(np.arange(len(y_pred)), y_pred, 'ro-', label='Predicted')
-    plt.title("Interference Model Analysis")
-    plt.legend()
-    st.pyplot(fig)
     mse = metrics.mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
     st.markdown("#### 性能度量")
@@ -245,6 +297,3 @@ elif analysis_model == 'ExtraTree Regression':
     from sklearn import tree
     regressor = tree.ExtraTreeRegressor()
     train_and_test_model(regressor)
-
-
-st.markdown("### 机器/深度学习 TODO")
