@@ -29,6 +29,16 @@ RDT、eBPF、perf等硬件、内核及QoS业务等相关指标进行分析，研
 与上层应用性能建模，对应用干扰性能探索提炼，指导黑盒在离线混部场景资源规划、调度管理
 """
 
+from sklearn.tree import ExtraTreeRegressor
+from sklearn.ensemble import BaggingRegressor
+from sklearn import ensemble
+from sklearn import neighbors
+from sklearn import svm
+from sklearn import linear_model
+from sklearn.model_selection import train_test_split
+from sklearn import tree
+from sklearn.linear_model import LinearRegression
+from sklearn import metrics
 from enum import unique
 import streamlit as st
 import numpy as np
@@ -106,7 +116,7 @@ st.set_page_config(layout="centered", page_icon="⎈",
                    page_title="rubik analysis")
 
 st.markdown("# ⎈ 混部干扰建模分析工具")
-st.markdown("## 业务介绍")
+st.markdown("## 业务介绍 TODO")
 st.markdown("## 环境说明")
 
 uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
@@ -118,48 +128,123 @@ node_info = pd.read_csv("node.csv", index_col="Item")
 st.table(node_info)
 
 st.markdown("## 指标数据")
-metrics = pd.read_csv("merge.csv")
+data = pd.read_csv("merge.csv")
 mode = st.radio(
     "Please select a mode to visualize the data:",
     ('origin', 'normalization', 'standardization'))
 
 if mode == 'normalization':
-    normalize_table(metrics)
+    normalize_table(data)
 elif mode == 'standardization':
-    standardize_table(metrics)
+    standardize_table(data)
 
-all_symbols = list(metrics.columns[1:])
+all_symbols = list(data.columns[1:])
 symbols = st.multiselect("Choose metrics to visualize",
                          all_symbols, all_symbols[:3])
-symbols.insert(0, metrics.columns[0])
+symbols.insert(0, data.columns[0])
 
-source = metrics[symbols]
+source = data[symbols]
 
 chart = get_chart(source)
 st.altair_chart(chart, use_container_width=True)
 
-st.markdown("## 资源敏感度分析")
+st.markdown("## 资源敏感度分析 TODO")
 
-col1, col2, col3 = st.columns(3)
-col1.metric("IPC", "0.525", "1")
-col2.metric("Banch Misses", "0.328", "2")
-col3.metric("Cache Misses", "0.234", "3")
 st.markdown("## 相关性分析")
 st.markdown("### 热力图")
 # pearson相关系数:  连续、正态分布、线性数据
 # spearman相关系数: 非线性的、非正态数据
 # Kendall相关系数:  分类变量、无序数据
 fig, ax = plt.subplots()
-metrics_correlation = metrics.corr(method="pearson")
+metrics_correlation = data.corr(method="pearson")
 
 sns.heatmap(metrics_correlation, ax=ax)
 st.write(fig)
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
+st.markdown("### 相关性指标排序")
 metrics_correlation.iloc[-1] = abs(metrics_correlation.iloc[-1])
 st.table(metrics_correlation.iloc[-1].sort_values(ascending=False))
 
-# fig = sns.pairplot(metrics)
-# st.pyplot(fig)
-st.markdown("### 相关性指标排序")
+
+vaild_metrics = metrics_correlation[metrics_correlation["qos"] > 0.2].index.tolist(
+)
+vaild_metrics.remove("qos")
+# vaild_metrics
+st.markdown("#### 筛选有效指标")
+col = st.columns(len(vaild_metrics))
+for i in range(len(vaild_metrics)):
+    corr_value = "{:.5}".format(metrics_correlation.iloc[-1][vaild_metrics[i]])
+    col[i].metric(vaild_metrics[i], corr_value, i + 1)
 
 st.markdown("### 回归拟合分析")
+# 数据预处理: 去除无效值; 特性缩放:标准化; 模型训练
+x = data[vaild_metrics]
+y = data[["qos"]]
+x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=1)
+
+
+def train_and_test_model(model):
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+    # score = model.score(x_test, y_test)
+    print("MSE:", metrics.mean_squared_error(y_test, y_pred))
+    print("RMSE:", np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+
+    fig = plt.figure()
+    plt.plot(np.arange(len(y_pred)),
+             y_test[["qos"]].values, 'go-', label='Measured')
+    plt.plot(np.arange(len(y_pred)), y_pred, 'ro-', label='Predicted')
+    plt.title("Interference Model Analysis")
+    plt.legend()
+    st.pyplot(fig)
+    mse = metrics.mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+    st.markdown("#### 性能度量")
+    model_evaluation = "MSE: {}, EMSE: {}".format(mse, rmse)
+    st.write(model_evaluation)
+
+
+analysis_model = st.selectbox(
+    'Please select a regression model',
+    ('Decision Tree Regression', 'Linear Regression', 'SVM Regression',
+     "KNN Regression", "Random Forest Regression", "Adaboost Regression",
+     "Gradient Boosting Regression", "Bagging Regression", "ExtraTree Regression",))
+
+if analysis_model == 'Decision Tree Regression':
+    from sklearn import tree
+    regressor = tree.DecisionTreeRegressor()
+    train_and_test_model(regressor)
+elif analysis_model == 'Linear Regression':
+    regressor = linear_model.LinearRegression()
+    train_and_test_model(regressor)
+elif analysis_model == 'SVM Regression':
+    from sklearn import svm
+    regressor = svm.SVR()
+    train_and_test_model(regressor)
+elif analysis_model == 'KNN Regression':
+    from sklearn import neighbors
+    regressor = neighbors.KNeighborsRegressor()
+    train_and_test_model(regressor)
+elif analysis_model == 'Random Forest Regression':
+    from sklearn import ensemble
+    regressor = ensemble.RandomForestRegressor(n_estimators=20)
+    train_and_test_model(regressor)
+elif analysis_model == 'Adaboost Regression':
+    from sklearn import ensemble
+    regressor = ensemble.AdaBoostRegressor(n_estimators=50)
+    train_and_test_model(regressor)
+elif analysis_model == 'Gradient Boosting Regression':
+    from sklearn import ensemble
+    regressor = ensemble.GradientBoostingRegressor(n_estimators=100)
+    train_and_test_model(regressor)
+elif analysis_model == 'Bagging Regression':
+    from sklearn import ensemble
+    regressor = ensemble.BaggingRegressor()
+    train_and_test_model(regressor)
+elif analysis_model == 'ExtraTree Regression':
+    from sklearn import tree
+    regressor = tree.ExtraTreeRegressor()
+    train_and_test_model(regressor)
+
+
+st.markdown("### 机器/深度学习 TODO")
