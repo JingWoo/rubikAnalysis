@@ -1,0 +1,11 @@
+Item,Value
+machineID,fedora-7a6d99e094894b4dae09f8dd82123c3e
+OS,Linux fedora 5.15.14-200.fc35.x86_64
+modelName,11th Gen Intel(R) Core(TM) i5-1145G7 @ 2.60GHz
+CPUs,0-7
+MemTotal,15984956 kB
+SwapTotal,8388604 kB
+L1d cache,192 KiB (4 instances)
+L1i cache,128 KiB (4 instances)
+L2 cache,5 MiB (4 instances)
+L3 cache,8 MiB (1 instance)

@@ -124,11 +124,11 @@ if uploaded_file is not None:
     data = pd.read_csv(uploaded_file, index_col="Item")
     st.write(data)
 
-node_info = pd.read_csv("node.csv", index_col="Item")
+node_info = pd.read_csv("../tests/data/node.csv", index_col="Item")
 st.table(node_info)
 
 st.markdown("## 指标数据")
-data = pd.read_csv("merge.csv")
+data = pd.read_csv("../tests/data/merge.csv")
 mode = st.radio(
     "Please select a mode to visualize the data:",
     ('origin', 'normalization', 'standardization'))
@@ -157,9 +157,18 @@ st.markdown("### 热力图")
 # Kendall相关系数:  分类变量、无序数据
 fig, ax = plt.subplots()
 metrics_correlation = data.corr(method="pearson")
-
 sns.heatmap(metrics_correlation, ax=ax)
 st.write(fig)
+
+# fig = sns.pairplot(data)
+# st.pyplot(fig)
+
+fig = sns.rugplot(data['branch_misses'])
+st.write(fig)
+
+fig = sns.jointplot(x='branch_misses', y='qos', data=data, kind='hex')
+st.write(fig)
+
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
 st.markdown("### 相关性指标排序")
 metrics_correlation.iloc[-1] = abs(metrics_correlation.iloc[-1])
@@ -169,7 +178,6 @@ st.table(metrics_correlation.iloc[-1].sort_values(ascending=False))
 vaild_metrics = metrics_correlation[metrics_correlation["qos"] > 0.2].index.tolist(
 )
 vaild_metrics.remove("qos")
-# vaild_metrics
 st.markdown("#### 筛选有效指标")
 col = st.columns(len(vaild_metrics))
 for i in range(len(vaild_metrics)):
