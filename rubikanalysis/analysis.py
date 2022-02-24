@@ -225,11 +225,11 @@ st.write(fig)
 # fig = sns.pairplot(data)
 # st.pyplot(fig)
 
-fig = sns.rugplot(data['branch_misses'])
-st.write(fig)
+fig = sns.jointplot(x='branch_misses', y='qos', data=data, kind='reg')
+st.pyplot(fig)
 
-fig = sns.jointplot(x='branch_misses', y='qos', data=data, kind='hex')
-st.write(fig)
+fig = sns.jointplot(x='topdown_bad_spec', y='qos', data=data, kind='reg')
+st.pyplot(fig)
 
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
 st.markdown("### 相关性指标排序")
