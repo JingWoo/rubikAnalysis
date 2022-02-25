@@ -103,10 +103,10 @@ def get_stress_chart(data, symbol):
         alt.Chart(data, title="Qos variation with stress " + symbol)
         .mark_line()
         .encode(
-            x="stress",
-            y="degradation-percent",
+            x=alt.X("stress:Q", axis=alt.Axis(orient="top")),
+            y=alt.Y("degradation-percent:Q", sort='descending'),
             color="type",
-            shape="type",
+            strokeDash="type",
         )
     )
 
@@ -118,8 +118,8 @@ def get_stress_chart(data, symbol):
         alt.Chart(data)
         .mark_rule()
         .encode(
-            x="stress",
-            y="degradation-percent",
+            x="stress:Q",
+            y="degradation-percent:Q",
             opacity=alt.condition(hover, alt.value(0.3), alt.value(0)),
             tooltip=[
                 alt.Tooltip("stress", title="Stress Info"),
@@ -131,6 +131,18 @@ def get_stress_chart(data, symbol):
     )
 
     return (lines + points + tooltips).interactive()
+
+def stress_sensitivity(stress_degrade):
+    if stress_degrade['degradation-percent'] <= 0.05:
+        return "no"
+    
+    if stress_degrade['degradation-percent'] <= 0.10:
+        return "low"
+
+    if stress_degrade['degradation-percent'] <= 0.20:
+        return "medium"
+
+    return "high"
 
 def normalize_table(df):
     cols = list(df)
@@ -191,7 +203,8 @@ st.altair_chart(chart, use_container_width=True)
 
 st.markdown("## 资源敏感度分析")
 
-stress = pd.read_csv("stress.csv", keep_default_na=False)
+# type stress avg-qos degradation-percent
+stress = pd.read_csv("../tests/data/stress.csv", keep_default_na=False)
 stress_all_symbols = ["cpu", "memory", "disk io", "cache", "network"]
 stress_unique_symbols = stress.type.unique()
 
@@ -202,15 +215,31 @@ for usymbol, asymbol in product(stress_unique_symbols, stress_all_symbols):
 stress_symbols = st.multiselect("Choose metrics to visualize",
                                 stress_symbols, stress_symbols)
 
-# 原始数据加入到每个图中
 for stress_symbol in stress_symbols:
     stress_source = stress[stress.type.str.contains(stress_symbol)]
+
+    # 插入无压力数据
+    nstress = stress[stress.type == "none"]
+    for usymbol in stress_unique_symbols:
+        if stress_symbol in usymbol:
+            stress_source = pd.concat([stress_source, nstress.replace("none", usymbol)], axis=0, ignore_index=True)
+
     stress_chart = get_stress_chart(stress_source, stress_symbol)
     st.altair_chart(stress_chart, use_container_width=True)
 
 st.markdown("#### 资源敏感度排序")
 
-# 资源敏感度排序
+stress_degrade = (
+    stress.drop(stress[stress.type == "none"].index)[['type', 'degradation-percent']]
+    .groupby(by='type')
+    .max()
+    .sort_values(by='degradation-percent', ascending=False)
+)
+
+stress_degrade.loc[:,'sensitivity'] = stress_degrade.apply(stress_sensitivity, axis=1)
+st.table(stress_degrade)
+
+st.info("degradation-percent in (, 0,05]:no ; (0.05, 0.10]:low ; (0.10, 0.20]:medinum ; (0.20,):high")
 
 st.markdown("## 相关性分析")
 st.markdown("### 热力图")
