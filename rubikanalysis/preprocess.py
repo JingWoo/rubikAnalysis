@@ -95,7 +95,7 @@ class StressProcess(object):
         output_list = []
 
         no_stress_qos = self.__get_rangetime_qos(None, stress_table.at[0, 'begin-timestamp'], qos_table)
-        output_list.append({"stress": "no stress", "avg-qos": no_stress_qos})
+        output_list.append({"type": "none", "stress": "0", "avg-qos": no_stress_qos})
 
         for _, row in stress_table.iterrows():
             if self.qos_index >= qos_len:
