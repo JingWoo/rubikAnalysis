@@ -91,6 +91,7 @@ def get_chart(data):
 
     return (lines + points + tooltips).interactive()
 
+
 def get_stress_chart(data, symbol):
     hover = alt.selection_single(
         fields=["stress"],
@@ -132,10 +133,11 @@ def get_stress_chart(data, symbol):
 
     return (lines + points + tooltips).interactive()
 
+
 def stress_sensitivity(stress_degrade):
     if stress_degrade['degradation-percent'] <= 0.05:
         return "no"
-    
+
     if stress_degrade['degradation-percent'] <= 0.10:
         return "low"
 
@@ -143,6 +145,7 @@ def stress_sensitivity(stress_degrade):
         return "medium"
 
     return "high"
+
 
 def normalize_table(df):
     cols = list(df)
@@ -209,7 +212,7 @@ stress_all_symbols = ["cpu", "memory", "disk io", "cache", "network"]
 stress_unique_symbols = stress.type.unique()
 
 stress_symbols = []
-for usymbol, asymbol in product(stress_unique_symbols, stress_all_symbols): 
+for usymbol, asymbol in product(stress_unique_symbols, stress_all_symbols):
     if asymbol in usymbol and asymbol not in stress_symbols:
         stress_symbols.append(asymbol)
 stress_symbols = st.multiselect("Choose metrics to visualize",
@@ -222,7 +225,8 @@ for stress_symbol in stress_symbols:
     nstress = stress[stress.type == "none"]
     for usymbol in stress_unique_symbols:
         if stress_symbol in usymbol:
-            stress_source = pd.concat([stress_source, nstress.replace("none", usymbol)], axis=0, ignore_index=True)
+            stress_source = pd.concat([stress_source, nstress.replace(
+                "none", usymbol)], axis=0, ignore_index=True)
 
     stress_chart = get_stress_chart(stress_source, stress_symbol)
     st.altair_chart(stress_chart, use_container_width=True)
@@ -230,13 +234,15 @@ for stress_symbol in stress_symbols:
 st.markdown("#### 资源敏感度排序")
 
 stress_degrade = (
-    stress.drop(stress[stress.type == "none"].index)[['type', 'degradation-percent']]
+    stress.drop(stress[stress.type == "none"].index)[
+        ['type', 'degradation-percent']]
     .groupby(by='type')
     .max()
     .sort_values(by='degradation-percent', ascending=False)
 )
 
-stress_degrade.loc[:,'sensitivity'] = stress_degrade.apply(stress_sensitivity, axis=1)
+stress_degrade.loc[:, 'sensitivity'] = stress_degrade.apply(
+    stress_sensitivity, axis=1)
 st.table(stress_degrade)
 
 st.info("degradation-percent in (, 0,05]:no ; (0.05, 0.10]:low ; (0.10, 0.20]:medinum ; (0.20,):high")
@@ -320,11 +326,10 @@ def draw_comparison_altair_chart(y_test, y_pred):
     ).transform_filter(
         nearest
     )
+
     charts = alt.layer(
         line, selectors, points, rules, text
-    ).properties(
-        width=600, height=300
-    )
+    ).interactive()
     st.altair_chart(charts, use_container_width=True)
 
 
