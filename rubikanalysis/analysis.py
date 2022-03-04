@@ -105,7 +105,7 @@ def get_stress_chart(data, symbol):
         .mark_line()
         .encode(
             x=alt.X("stress:Q", axis=alt.Axis(orient="top")),
-            y=alt.Y("degradation-percent:Q", sort='descending'),
+            y=alt.Y("degradation-percent:Q", sort='descending', title="degradation percent(%)"),
             color="type",
             strokeDash="type",
         )
@@ -135,13 +135,13 @@ def get_stress_chart(data, symbol):
 
 
 def stress_sensitivity(stress_degrade):
-    if stress_degrade['degradation-percent'] <= 0.05:
+    if stress_degrade['degradation-percent'] <= 5:
         return "no"
 
-    if stress_degrade['degradation-percent'] <= 0.10:
+    if stress_degrade['degradation-percent'] <= 10:
         return "low"
 
-    if stress_degrade['degradation-percent'] <= 0.20:
+    if stress_degrade['degradation-percent'] <= 20:
         return "medium"
 
     return "high"
@@ -245,7 +245,7 @@ stress_degrade.loc[:, 'sensitivity'] = stress_degrade.apply(
     stress_sensitivity, axis=1)
 st.table(stress_degrade)
 
-st.info("degradation-percent in (, 0,05]:no ; (0.05, 0.10]:low ; (0.10, 0.20]:medinum ; (0.20,):high")
+st.info("degradation-percent in (, 5]:no ; (5, 10]:low ; (10, 20]:medinum ; (20,):high")
 
 st.markdown("## 相关性分析")
 st.markdown("### 热力图")
