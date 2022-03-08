@@ -1,6 +1,6 @@
 import argparse
 
-from . import Preprocess, StressProcess
+from . import Preprocess, StressProcess, MechineProcess
 
 
 def preprocess_main(args):
@@ -11,6 +11,10 @@ def preprocess_main(args):
 def stress_process_main(args):
     stress_process = StressProcess(args.stress, args.qos, args.output)
     stress_process.execute()
+
+def mechine_process_main(args):
+    mechine_process = MechineProcess(args.stress, args.mechine, args.output)
+    mechine_process.execute()
 
 def main() -> None:
     """
@@ -49,6 +53,16 @@ def main() -> None:
     parser_stress_process.add_argument(
         '-o', "--output", type=str, help='Stress merged file', required=True)
     parser_stress_process.set_defaults(func=stress_process_main)
+
+    parser_mechine_process = subparsers.add_parser(
+        'mechine-process', help='Mechine data processing')
+    parser_mechine_process.add_argument(
+        '-s', "--stress", type=str, help='Stress info file', required=True)
+    parser_mechine_process.add_argument(
+        '-m', "--mechine", type=str, help='Mechine data file', required=True)
+    parser_mechine_process.add_argument(
+        '-o', "--output", type=str, help='Merged file', required=True)
+    parser_mechine_process.set_defaults(func=mechine_process_main)
 
     args = parser.parse_args()
     args.func(args)
