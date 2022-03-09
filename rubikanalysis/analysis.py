@@ -163,7 +163,8 @@ if uploaded_node_file is not None:
 st.table(node_info)
 
 st.markdown("## 指标数据")
-data = pd.read_csv("../tests/data/default/nginx.csv")
+# data = pd.read_csv("../tests/data/default/nginx.csv")
+data = pd.read_csv("../tests/data/clickhouse/l3cache_stress.csv")
 uploaded_metrics_file = st.file_uploader("上传指标数据-QoS数据", type="csv")
 if uploaded_metrics_file is not None:
     data = pd.read_csv(uploaded_metrics_file)
@@ -263,37 +264,35 @@ st.write(fig)
 
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
 st.markdown("### 相关性指标排序")
-metrics_correlation.iloc[-1] = abs(metrics_correlation.iloc[-1])
-st.table(metrics_correlation.iloc[-1].sort_values(ascending=False))
-
-metrics_correlation.iloc[-1] = metrics_correlation.iloc[-1].sort_values(
+sorted_metrics_correlation = abs(metrics_correlation.iloc[-1]).sort_values(
     ascending=False)
+st.table(sorted_metrics_correlation)
 
-vaild_metrics = metrics_correlation[abs(metrics_correlation["qos"]) > 0.2].index.tolist(
-)
+vaild_metrics = sorted_metrics_correlation[abs(
+    metrics_correlation["qos"]) > 0.3].index.tolist()
 vaild_metrics.remove("qos")
-st.markdown("#### 筛选有效指标")
 
+st.markdown("#### 筛选有效指标")
 col = st.columns(len(vaild_metrics))
 label_col = 5
 label_raw = len(vaild_metrics) // label_col + 1
 
 for raw in range(label_raw):
-    show_label_count = label_col if len(
-        vaild_metrics) // label_col > 0 else len(vaild_metrics) % label_col
+    show_label_count = label_col if (len(
+        vaild_metrics) - raw * label_col) // label_col > 0 else len(vaild_metrics) % label_col
     stcolumns = st.columns(show_label_count)
     for col in range(show_label_count):
         index = raw * label_col + col
-        index
         corr_value = "{:.5}".format(
             metrics_correlation.iloc[-1][vaild_metrics[index]])
         stcolumns[col].metric(vaild_metrics[index], corr_value, index + 1)
 
 for i in range(len(vaild_metrics)):
-    if i >= 4:
+    if i >= 5:
         break
     fig = sns.jointplot(x=vaild_metrics[i], y='qos', data=data, kind='reg')
     st.pyplot(fig)
+
 
 st.markdown("### 回归拟合分析")
 # 数据预处理: 去除无效值; 特性缩放:标准化; 模型训练
