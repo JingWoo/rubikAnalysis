@@ -105,7 +105,8 @@ def get_stress_chart(data, symbol):
         .mark_line()
         .encode(
             x=alt.X("stress:Q", axis=alt.Axis(orient="top")),
-            y=alt.Y("degradation-percent:Q", sort='descending', title="degradation percent(%)"),
+            y=alt.Y("degradation-percent:Q", sort='descending',
+                    title="degradation percent(%)"),
             color="type",
             strokeDash="type",
         )
@@ -184,7 +185,7 @@ node_info = pd.read_csv("../tests/data/node.csv", index_col="Item")
 st.table(node_info)
 
 st.markdown("## 指标数据")
-data = pd.read_csv("../tests/data/merge.csv")
+data = pd.read_csv("../tests/data/clickhouse/l3cache_stress.csv")
 mode = st.radio(
     "Please select a mode to visualize the data:",
     ('origin', 'normalization', 'standardization'))
@@ -245,7 +246,8 @@ stress_degrade.loc[:, 'sensitivity'] = stress_degrade.apply(
     stress_sensitivity, axis=1)
 st.table(stress_degrade)
 
-st.info("degradation-percent in (, 5]:no ; (5, 10]:low ; (10, 20]:medinum ; (20,):high")
+st.info(
+    "degradation-percent in (, 5]:no ; (5, 10]:low ; (10, 20]:medinum ; (20,):high")
 
 st.markdown("## 相关性分析")
 st.markdown("### 热力图")
@@ -260,11 +262,11 @@ st.write(fig)
 # fig = sns.pairplot(data)
 # st.pyplot(fig)
 
-fig = sns.jointplot(x='branch_misses', y='qos', data=data, kind='reg')
-st.pyplot(fig)
+# fig = sns.jointplot(x='branch_misses', y='qos', data=data, kind='reg')
+# st.pyplot(fig)
 
-fig = sns.jointplot(x='topdown_bad_spec', y='qos', data=data, kind='reg')
-st.pyplot(fig)
+# fig = sns.jointplot(x='topdown_bad_spec', y='qos', data=data, kind='reg')
+# st.pyplot(fig)
 
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
 st.markdown("### 相关性指标排序")
