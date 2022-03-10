@@ -273,6 +273,9 @@ vaild_metrics = sorted_metrics_correlation[abs(
 vaild_metrics.remove("qos")
 
 st.markdown("#### 筛选有效指标")
+if len(vaild_metrics) == 0:
+        st.markdown("        ** 指标相关性过低，无法分析** ")
+
 col = st.columns(len(vaild_metrics))
 label_col = 5
 label_raw = len(vaild_metrics) // label_col + 1
