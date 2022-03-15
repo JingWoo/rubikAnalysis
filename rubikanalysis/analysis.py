@@ -274,7 +274,7 @@ vaild_metrics.remove("qos")
 
 st.markdown("#### 筛选有效指标")
 if len(vaild_metrics) == 0:
-        st.markdown("        ** 指标相关性过低，无法分析** ")
+    st.markdown("        ** 指标相关性过低，无法分析** ")
 
 col = st.columns(len(vaild_metrics))
 label_col = 5
@@ -295,7 +295,6 @@ for i in range(len(vaild_metrics)):
         break
     fig = sns.jointplot(x=vaild_metrics[i], y='qos', data=data, kind='reg')
     st.pyplot(fig)
-
 
 st.markdown("### 回归拟合分析")
 # 数据预处理: 去除无效值; 特性缩放:标准化; 模型训练
