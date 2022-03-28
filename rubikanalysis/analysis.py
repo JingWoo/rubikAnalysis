@@ -371,7 +371,7 @@ def train_and_test_model(model):
     mse = metrics.mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
     st.markdown("#### 性能度量")
-    model_evaluation = "MSE: {}, EMSE: {}".format(mse, rmse)
+    model_evaluation = "MSE: {}, RMSE: {}".format(mse, rmse)
     st.write(model_evaluation)
 
 

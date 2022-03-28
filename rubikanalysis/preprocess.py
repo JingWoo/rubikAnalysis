@@ -138,3 +138,68 @@ class StressProcess(object):
             time2, "%Y-%m-%d %H:%M:%S")))
 
         return time1_st > time2_st
+
+class MechineProcess(object):
+    def __init__(self, stress, mechine, output):
+        self.stress = stress
+        self.mechine = mechine
+        self.mechine_index = 0
+        self.output = output
+
+    def execute(self) -> None:
+        """
+        Execute Cpu Usage Data Process
+        """
+        self.__load_and_generate_output()
+
+    def __load_and_generate_output(self):
+        # begin-timestamp end-timestamp type stress command
+        stress_col_name = ['begin-timestamp', 'end-timestamp', 'type', 'stress', 'command']
+        stress_table = pd.read_table(self.stress, names=stress_col_name, header=0)
+        # timestamp cpu-usage memory cpi mkpi llc lmb rmb network-io disk-io
+        mechine_col_name = ['timestamp', 'cpu-usage', 'memory', 'cpi', 'mkpi', 'llc', 'lmb', 'rmb', 'network-io', 'disk-io']
+        mechine_table = pd.read_table(self.mechine, names=mechine_col_name, header=0)
+
+        mechine_len = len(mechine_table)
+        output_list = []
+
+        for _, row in stress_table.iterrows():
+            if self.mechine_index >= mechine_len:
+                break
+
+            begin_timestamp = row['begin-timestamp']
+            end_timestamp = row['end-timestamp']
+            average_cpu_usage = self.__get_rangetime_cpu_usage(begin_timestamp, end_timestamp, mechine_table)
+            output_list.append({"type": row['type'], "stress": row['stress'], "avg-cpu-usage": average_cpu_usage})
+
+        # type stress avg-cpu-usage
+        output_table = pd.DataFrame.from_records(output_list, columns=['type', 'stress', 'avg-cpu-usage'])
+        output_table.to_csv(self.output, index=False)
+                
+    def __get_rangetime_cpu_usage(self, begin_time, end_time, mechine_table):
+        mechine_len = len(mechine_table)
+        if self.mechine_index >= mechine_len:
+            return 0
+
+        if begin_time is not None:
+            while self.__compare_stimestamp_gt(begin_time, mechine_table.at[self.mechine_index, 'timestamp']):
+                self.mechine_index += 1
+                if self.mechine_index >= mechine_len:
+                    return 0
+        begin_index = self.mechine_index
+
+        while self.__compare_stimestamp_gt(end_time, mechine_table.at[self.mechine_index, 'timestamp']):
+            self.mechine_index += 1
+            if self.mechine_index >= mechine_len:
+                break
+        end_index = self.mechine_index
+
+        return np.mean(mechine_table[begin_index:end_index]["cpu-usage"])
+
+    def __compare_stimestamp_gt(self, time1, time2):
+        time1_st = int(time.mktime(time.strptime(
+            time1, "%Y-%m-%d %H:%M:%S")))
+        time2_st = int(time.mktime(time.strptime(
+            time2, "%Y-%m-%d %H:%M:%S")))
+
+        return time1_st > time2_st
