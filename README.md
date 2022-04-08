@@ -7,7 +7,8 @@
 
 ```bash
 $ pip install -r requirements.txt
-$ streamlit run rubikanalysis.py
+$ cd rubikanalysis
+$ streamlit run analysis.py
 ```
 
 ## Development
