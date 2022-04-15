@@ -25,12 +25,10 @@ class Preprocess(object):
         self.__load_and_generate_output()
 
     def __load_and_generate_output(self):
-        # timestamp ipc cache-misses context-switch
-        # metrics = pd.read_table(self.metrics, sep="\t", names=[
-        #                         "timestamp", "ipc", "cache-misses"])
-        # print(metrics["timestamp"])
-        metrics = pd.read_table(self.metrics, header=None, index_col=0)
-        qos = pd.read_table(self.qos, header=None, index_col=0)
+        # timestamp,context-switches,branch-misses,......
+        metrics = pd.read_table(self.metrics, header=0, sep=',', index_col=0)
+        # timestamp qos
+        qos = pd.read_table(self.qos, header=0, index_col=0)
         metrics_timestamps = list(metrics.index)
         qos_timestamps = list(qos.index)
         metrics_filted_result = []
@@ -46,7 +44,7 @@ class Preprocess(object):
         qos_table = qos.loc[qos_filted_result]
         qos_table.to_csv("qos.csv")
         col = qos_table.iloc[:, 0]
-        output_table[output_table.shape[1]+1] = col.values
+        output_table.insert(output_table.shape[1], 'qos', col.values)
         output_table.to_csv(self.output)
 
     def __match_and_filter(self, broad_pd, narrow_pd):
