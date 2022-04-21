@@ -8,17 +8,7 @@ Analysis of the preprocessed data:
 3. Data visualization(streamlit or plotly/dash)
 """
 
-from sklearn.tree import ExtraTreeRegressor
-from sklearn.ensemble import BaggingRegressor
-from sklearn import ensemble
-from sklearn import neighbors
-from sklearn import svm
-from sklearn import linear_model
-from sklearn.model_selection import train_test_split
-from sklearn import tree
-from sklearn.linear_model import LinearRegression
-from sklearn import metrics
-from enum import unique
+from sklearn import ensemble, neighbors, svm, linear_model, model_selection, tree, metrics, preprocessing 
 from itertools import product
 import streamlit as st
 import numpy as np
@@ -300,8 +290,7 @@ st.markdown("### 回归拟合分析")
 # 数据预处理: 去除无效值; 特性缩放:标准化; 模型训练
 x = data[vaild_metrics]
 y = data[["qos"]]
-x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=1)
-
+x_train, x_test, y_train, y_test = model_selection.train_test_split(x, y, random_state=1)
 
 def draw_comparison_altair_chart(y_test, y_pred):
     y_test_list = y_test["qos"]
@@ -360,59 +349,109 @@ def draw_comparison_matplotlib_chart(y_test, y_pred):
     st.pyplot(fig)
 
 
-def train_and_test_model(model):
-    model.fit(x_train, y_train)
-    y_pred = model.predict(x_test)
-    # score = model.score(x_test, y_test)
-    print("MSE:", metrics.mean_squared_error(y_test, y_pred))
-    print("RMSE:", np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
-    draw_comparison_altair_chart(y_test, y_pred)
+class RegressionModel():
+    """regression model for metrics"""
 
-    mse = metrics.mean_squared_error(y_test, y_pred)
-    rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
-    st.markdown("#### 性能度量")
-    model_evaluation = "MSE: {}, RMSE: {}".format(mse, rmse)
-    st.write(model_evaluation)
+    def __init__(self, model) -> None:
+        self.model = model
 
+        self.mse = 0
+        self.rmse = 0
 
-analysis_model = st.selectbox(
-    'Please select a regression model',
-    ('Decision Tree Regression', 'Linear Regression', 'SVM Regression',
-     "KNN Regression", "Random Forest Regression", "Adaboost Regression",
-     "Gradient Boosting Regression", "Bagging Regression", "ExtraTree Regression",))
+    def train_and_test_model(self):
+        self.model.fit(x_train, np.ravel(y_train))
 
-if analysis_model == 'Decision Tree Regression':
-    from sklearn import tree
-    regressor = tree.DecisionTreeRegressor()
-    train_and_test_model(regressor)
-elif analysis_model == 'Linear Regression':
-    regressor = linear_model.LinearRegression()
-    train_and_test_model(regressor)
-elif analysis_model == 'SVM Regression':
-    from sklearn import svm
-    regressor = svm.SVR()
-    train_and_test_model(regressor)
-elif analysis_model == 'KNN Regression':
-    from sklearn import neighbors
-    regressor = neighbors.KNeighborsRegressor()
-    train_and_test_model(regressor)
-elif analysis_model == 'Random Forest Regression':
-    from sklearn import ensemble
-    regressor = ensemble.RandomForestRegressor(n_estimators=20)
-    train_and_test_model(regressor)
-elif analysis_model == 'Adaboost Regression':
-    from sklearn import ensemble
-    regressor = ensemble.AdaBoostRegressor(n_estimators=50)
-    train_and_test_model(regressor)
-elif analysis_model == 'Gradient Boosting Regression':
-    from sklearn import ensemble
-    regressor = ensemble.GradientBoostingRegressor(n_estimators=100)
-    train_and_test_model(regressor)
-elif analysis_model == 'Bagging Regression':
-    from sklearn import ensemble
-    regressor = ensemble.BaggingRegressor()
-    train_and_test_model(regressor)
-elif analysis_model == 'ExtraTree Regression':
-    from sklearn import tree
-    regressor = tree.ExtraTreeRegressor()
-    train_and_test_model(regressor)
+        y_pred = self.model.predict(x_test)
+        # score = model.score(x_test, y_test)
+        draw_comparison_altair_chart(y_test, y_pred)
+
+        self.mse = metrics.mean_squared_error(y_test, y_pred)
+        self.rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+        model_evaluation = "MSE: {}, RMSE: {}".format(self.mse, self.rmse)
+        st.write(model_evaluation)
+
+class PolynomialRegressionModel():
+    """polynomial regression model for metrics"""
+
+    def __init__(self, degree) -> None:
+        self.model = linear_model.LinearRegression()
+
+        self.mse = 0
+        self.rmse = 0
+        self.degree = degree
+
+    def train_and_test_model(self):
+        self.poly = preprocessing.PolynomialFeatures(degree = self.degree) 
+        X_poly = self.poly.fit_transform(x_train)
+
+        self.model.fit(X_poly, y_train)
+
+        y_pred = self.model.predict(self.poly.transform(x_test))
+        # score = model.score(x_test, y_test)
+        draw_comparison_altair_chart(y_test, y_pred)
+
+        self.mse = metrics.mean_squared_error(y_test, y_pred)
+        self.rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+        model_evaluation = "MSE: {}, RMSE: {}".format(self.mse, self.rmse)
+        st.write(model_evaluation)
+
+polynomial_regression_list = [
+    {'name': '1st Degree Polynomial Regression', 'degree': 1},
+    {'name': '2nd Degree Polynomial Regression', 'degree': 2},
+    {'name': '3rd Degree Polynomial Regression', 'degree': 3},
+    {'name': '4th Degree Polynomial Regression', 'degree': 4},
+    {'name': '5th Degree Polynomial Regression', 'degree': 5},
+]
+
+other_regression_list = [
+    {'name': 'Decision Tree Regression', 'regressor': tree.DecisionTreeRegressor()},
+    {'name': 'SVM Regression', 'regressor': svm.SVR()},
+    {'name': 'KNN Regression', 'regressor': neighbors.KNeighborsRegressor()},
+    {'name': 'Random Forest Regression', 'regressor': ensemble.RandomForestRegressor(n_estimators=20)},
+    {'name': 'Adaboost Regression', 'regressor': ensemble.AdaBoostRegressor(n_estimators=50)},
+    {'name': 'Gradient Boosting Regression', 'regressor': ensemble.GradientBoostingRegressor(n_estimators=100)},
+    {'name': 'Bagging Regression', 'regressor': ensemble.BaggingRegressor()},
+    {'name': 'ExtraTree Regression', 'regressor': tree.ExtraTreeRegressor()},
+]
+
+mse_list = []
+polynomial_list = []
+
+for polynomial_regression in polynomial_regression_list:
+    st.markdown("#### " + polynomial_regression['name'])
+    degree = polynomial_regression['degree']
+    
+    regression_model = PolynomialRegressionModel(degree)
+    regression_model.train_and_test_model()
+
+    polynomial_list.append({'name': polynomial_regression['name'], 'mse': regression_model.mse, 'regression_model': regression_model})
+    mse_list.append({'name': polynomial_regression['name'], 'mse': regression_model.mse, 'rmse': regression_model.rmse})
+
+for other_regression in other_regression_list:
+    st.markdown("#### " + other_regression['name'])
+    regressor = other_regression['regressor']
+    
+    regression_model = RegressionModel(regressor)
+    regression_model.train_and_test_model()
+
+    mse_list.append({'name': other_regression['name'], 'mse': regression_model.mse, 'rmse': regression_model.rmse})
+
+def takeMse(elem):
+    return elem['mse']
+
+mse_list.sort(key=takeMse)
+st.table(pd.DataFrame(mse_list).set_index('name'))
+
+st.markdown("### 多项式回归拟合筛选")
+
+polynomial = min(polynomial_list, key=takeMse)
+st.markdown("**" + polynomial['name'] + "**")
+model_evaluation = "MSE: {}, RMSE: {}".format(polynomial['regression_model'].mse, polynomial['regression_model'].rmse)
+st.write(model_evaluation)
+
+coef = polynomial['regression_model'].model.coef_
+feature_names = polynomial['regression_model'].poly.get_feature_names_out(vaild_metrics)
+
+polynomial_df = pd.DataFrame(feature_names, columns = ['features'])
+polynomial_df['coef'] = np.ravel(coef)
+st.table(polynomial_df.style.format({'coef': "{:.10f}"}))
