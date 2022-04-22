@@ -255,7 +255,7 @@ st.write(fig)
 st.info("|r|>0.95存在显著性相关;|r|≥0.8高度相关;0.5≤|r|<0.8 中度相关;0.3≤|r|<0.5低度相关;|r|<0.3关系极弱")
 st.markdown("### 相关性指标排序")
 sorted_metrics_correlation = abs(metrics_correlation.iloc[-1]).sort_values(
-    ascending=False)
+    ascending=False).dropna(axis=0, how='any')
 st.table(sorted_metrics_correlation)
 
 vaild_metrics = sorted_metrics_correlation[abs(
@@ -266,23 +266,15 @@ st.markdown("#### 筛选有效指标")
 if len(vaild_metrics) == 0:
     st.markdown("        ** 指标相关性过低，无法分析** ")
 
-col = st.columns(len(vaild_metrics))
-label_col = 5
-label_raw = len(vaild_metrics) // label_col + 1
+vaild_metrics = vaild_metrics[:5]
+vaild_metrics_cols = st.columns(len(vaild_metrics))
 
-for raw in range(label_raw):
-    show_label_count = label_col if (len(
-        vaild_metrics) - raw * label_col) // label_col > 0 else len(vaild_metrics) % label_col
-    stcolumns = st.columns(show_label_count)
-    for col in range(show_label_count):
-        index = raw * label_col + col
-        corr_value = "{:.5}".format(
-            metrics_correlation.iloc[-1][vaild_metrics[index]])
-        stcolumns[col].metric(vaild_metrics[index], corr_value, index + 1)
+for col in range(len(vaild_metrics)):
+    corr_value = "{:.5}".format(
+        metrics_correlation.iloc[-1][vaild_metrics[col]])
+    vaild_metrics_cols[col].metric(vaild_metrics[col], corr_value, col + 1)
 
 for i in range(len(vaild_metrics)):
-    if i >= 5:
-        break
     fig = sns.jointplot(x=vaild_metrics[i], y='qos', data=data, kind='reg')
     st.pyplot(fig)
 
@@ -424,7 +416,7 @@ for polynomial_regression in polynomial_regression_list:
     regression_model = PolynomialRegressionModel(degree)
     regression_model.train_and_test_model()
 
-    polynomial_list.append({'name': polynomial_regression['name'], 'mse': regression_model.mse, 'regression_model': regression_model})
+    polynomial_list.append({'name': polynomial_regression['name'], 'rmse': regression_model.rmse, 'regression_model': regression_model})
     mse_list.append({'name': polynomial_regression['name'], 'mse': regression_model.mse, 'rmse': regression_model.rmse})
 
 for other_regression in other_regression_list:
@@ -437,7 +429,7 @@ for other_regression in other_regression_list:
     mse_list.append({'name': other_regression['name'], 'mse': regression_model.mse, 'rmse': regression_model.rmse})
 
 def takeMse(elem):
-    return elem['mse']
+    return elem['rmse']
 
 mse_list.sort(key=takeMse)
 st.table(pd.DataFrame(mse_list).set_index('name'))
@@ -445,13 +437,17 @@ st.table(pd.DataFrame(mse_list).set_index('name'))
 st.markdown("### 多项式回归拟合筛选")
 
 polynomial = min(polynomial_list, key=takeMse)
-st.markdown("**" + polynomial['name'] + "**")
-model_evaluation = "MSE: {}, RMSE: {}".format(polynomial['regression_model'].mse, polynomial['regression_model'].rmse)
-st.write(model_evaluation)
 
-coef = polynomial['regression_model'].model.coef_
-feature_names = polynomial['regression_model'].poly.get_feature_names_out(vaild_metrics)
+if polynomial['rmse'] > 15:
+    st.write("指标相关性较弱，不适合进行多项式回归拟合")
+else:
+    st.markdown("**" + polynomial['name'] + "**")
+    model_evaluation = "MSE: {}, RMSE: {}".format(polynomial['regression_model'].mse, polynomial['regression_model'].rmse)
+    st.write(model_evaluation)
 
-polynomial_df = pd.DataFrame(feature_names, columns = ['features'])
-polynomial_df['coef'] = np.ravel(coef)
-st.table(polynomial_df.style.format({'coef': "{:.10f}"}))
+    coef = polynomial['regression_model'].model.coef_
+    feature_names = polynomial['regression_model'].poly.get_feature_names_out(vaild_metrics)
+
+    polynomial_df = pd.DataFrame(feature_names, columns = ['features'])
+    polynomial_df['coef'] = np.ravel(coef)
+    st.table(polynomial_df.style.format({'coef': "{:.10f}"}))
