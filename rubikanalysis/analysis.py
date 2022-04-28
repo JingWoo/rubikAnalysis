@@ -117,6 +117,49 @@ def stress_sensitivity(stress_degrade):
     return "high"
 
 
+
+def get_usage_chart(data, symbol):
+    hover = alt.selection_single(
+        fields=["stress"],
+        nearest=True,
+        on="mouseover",
+        empty="none",
+    )
+
+    lines = (
+        alt.Chart(data, title="CPU usage variation with stress " + symbol)
+        .mark_line()
+        .encode(
+            x=alt.X("stress:Q", axis=alt.Axis(orient="top")),
+            y=alt.Y("avg-cpu-usage:Q", sort='descending',
+                    title="cpu usage percent(%)"),
+            color="type",
+            strokeDash="type",
+        )
+    )
+
+    # Draw points on the line, and highlight based on selection
+    points = lines.transform_filter(hover).mark_circle(size=65)
+
+    # Draw a rule at the location of the selection
+    tooltips = (
+        alt.Chart(data)
+        .mark_rule()
+        .encode(
+            x="stress:Q",
+            y="avg-cpu-usage:Q",
+            opacity=alt.condition(hover, alt.value(0.3), alt.value(0)),
+            tooltip=[
+                alt.Tooltip("stress", title="Stress Info"),
+                alt.Tooltip("avg-cpu-usage", title="CPU Usage Percent")
+            ],
+        )
+        .add_selection(hover)
+    )
+
+    return (lines + points + tooltips).interactive()
+
+
 def normalize_table(df):
     cols = list(df)
     for item in cols:
@@ -186,25 +229,48 @@ uploaded_stress_file = st.file_uploader("上传压力测试指标数据", type="
 if uploaded_stress_file is not None:
     stress = pd.read_csv(uploaded_stress_file)
 
-stress_all_symbols = ["cpu", "memory", "disk io", "cache", "network"]
-stress_unique_symbols = stress.type.unique()
+symbol_transform = {
+    "icache": "cache",
+    "L1 cache": "cache",
+    "L2 cache": "cache",
+    "L3 cache": "cache",
 
+    "network in": "network",
+    "network out": "network",
+}
+def get_key(dict, value):
+    return [k for k,v in dict.items() if v == value]
+
+stress_unique_symbols = stress.type.unique()
 stress_symbols = []
-for usymbol, asymbol in product(stress_unique_symbols, stress_all_symbols):
-    if asymbol in usymbol and asymbol not in stress_symbols:
-        stress_symbols.append(asymbol)
-stress_symbols = st.multiselect("Choose metrics to visualize",
+
+for symbol in stress_unique_symbols:
+    if symbol in symbol_transform:
+        symbol = symbol_transform[symbol]
+
+    if symbol == 'none':
+        continue
+
+    if symbol not in stress_symbols:
+        stress_symbols.append(symbol)
+
+stress_symbols = st.multiselect("Choose resource symbols",
                                 stress_symbols, stress_symbols)
 
 for stress_symbol in stress_symbols:
-    stress_source = stress[stress.type.str.contains(stress_symbol)]
-
     # 插入无压力数据
     nstress = stress[stress.type == "none"]
-    for usymbol in stress_unique_symbols:
-        if stress_symbol in usymbol:
+
+    if stress_symbol in symbol_transform.values():
+        keys = get_key(symbol_transform, stress_symbol)
+        stress_source = stress[stress['type'].isin(keys)]
+        for key in keys:
             stress_source = pd.concat([stress_source, nstress.replace(
-                "none", usymbol)], axis=0, ignore_index=True)
+                "none", key)], axis=0, ignore_index=True)
+    else:
+        stress_source = stress[stress['type'] == stress_symbol]
+        stress_source = pd.concat([stress_source, nstress.replace(
+                "none", stress_symbol)], axis=0, ignore_index=True)
 
     stress_chart = get_stress_chart(stress_source, stress_symbol)
     st.altair_chart(stress_chart, use_container_width=True)
@@ -212,7 +278,7 @@ for stress_symbol in stress_symbols:
 st.markdown("#### 资源敏感度排序")
 
 stress_degrade = (
-    stress.drop(stress[stress.type == "none"].index)[
+    stress.drop(stress[stress['type'] == "none"].index)[
         ['type', 'degradation-percent']]
     .groupby(by='type')
     .max()
@@ -225,6 +291,49 @@ st.table(stress_degrade)
 
 st.info(
     "degradation-percent in (, 5]:no ; (5, 10]:low ; (10, 20]:medinum ; (20,):high")
+
+st.markdown("## 资源利用率")
+
+# type stress avg-qos degradation-percent
+usage = pd.read_csv("../tests/data/default/machine.csv", keep_default_na=False)
+uploaded_usage_file = st.file_uploader("上传利用率数据", type="csv")
+if uploaded_usage_file is not None:
+    usage = pd.read_csv(uploaded_usage_file)
+
+usage_unique_symbols = usage.type.unique()
+usage_symbols = []
+
+for symbol in usage_unique_symbols:
+    if symbol in symbol_transform:
+        symbol = symbol_transform[symbol]
+
+    if symbol == 'none':
+        continue
+
+    if symbol not in usage_symbols:
+        usage_symbols.append(symbol)
+
+usage_symbols = st.multiselect("Choose resource symbols to display",
+                                usage_symbols, usage_symbols)
+
+for usage_symbol in usage_symbols:
+    # 插入无压力数据
+    nusage = usage[usage['type'] == "none"]
+
+    if usage_symbol in symbol_transform.values():
+        keys = get_key(symbol_transform, usage_symbol)
+        usage_source = usage[usage['type'].isin(keys)]
+        for key in keys:
+            usage_source = pd.concat([usage_source, nusage.replace(
+                "none", key)], axis=0, ignore_index=True)
+    else:
+        usage_source = usage[usage['type'] == usage_symbol]
+        usage_source = pd.concat([usage_source, nusage.replace(
+                "none", usage_symbol)], axis=0, ignore_index=True)
+
+    usage_chart = get_usage_chart(usage_source, usage_symbol)
+    st.altair_chart(usage_chart, use_container_width=True)
+
 
 st.markdown("## 相关性分析")
 st.markdown("### 热力图")

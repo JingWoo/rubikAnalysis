@@ -6,7 +6,6 @@ and the indicators are corresponding and merged according to
 the method of time stamp proximity search..
 """
 
-from pydoc import doc
 import time
 import sys
 import pandas as pd
@@ -92,8 +91,8 @@ class StressProcess(object):
         qos_len = len(qos_table)
         output_list = []
 
-        no_stress_qos = self.__get_rangetime_qos(None, stress_table.at[0, 'begin-timestamp'], qos_table)
-        output_list.append({"type": "none", "stress": "0", "avg-qos": no_stress_qos})
+        # no_stress_qos = self.__get_rangetime_qos(None, stress_table.at[0, 'begin-timestamp'], qos_table)
+        # output_list.append({"type": "none", "stress": "0", "avg-qos": no_stress_qos})
 
         for _, row in stress_table.iterrows():
             if self.qos_index >= qos_len:
@@ -106,7 +105,15 @@ class StressProcess(object):
 
         # type stress avg-qos degradation-percent
         output_table = pd.DataFrame.from_records(output_list, columns=['type', 'stress', 'avg-qos', 'degradation-percent'])
-        output_table['degradation-percent'] = 100 * (output_table['avg-qos'] - no_stress_qos) / no_stress_qos
+        # output_table['degradation-percent'] = 100 * (output_table['avg-qos'] - no_stress_qos) / no_stress_qos
+
+        no_stress_qos = -1
+        for index, row in output_table.iterrows():
+            if abs(row['stress']) <= 1e-5:
+                no_stress_qos = row['avg-qos']
+            row['degradation-percent'] = 100 * (row['avg-qos'] - no_stress_qos) / no_stress_qos
+            output_table.iloc[index] = row
+
         output_table.to_csv(self.output, index=False)
                 
     def __get_rangetime_qos(self, begin_time, end_time, qos_table):
@@ -137,11 +144,11 @@ class StressProcess(object):
 
         return time1_st > time2_st
 
-class MechineProcess(object):
-    def __init__(self, stress, mechine, output):
+class MachineProcess(object):
+    def __init__(self, stress, machine, output):
         self.stress = stress
-        self.mechine = mechine
-        self.mechine_index = 0
+        self.machine = machine
+        self.machine_index = 0
         self.output = output
 
     def execute(self) -> None:
@@ -155,44 +162,44 @@ class MechineProcess(object):
         stress_col_name = ['begin-timestamp', 'end-timestamp', 'type', 'stress', 'command']
         stress_table = pd.read_table(self.stress, names=stress_col_name, header=0)
         # timestamp cpu-usage memory cpi mkpi llc lmb rmb network-io disk-io
-        mechine_col_name = ['timestamp', 'cpu-usage', 'memory', 'cpi', 'mkpi', 'llc', 'lmb', 'rmb', 'network-io', 'disk-io']
-        mechine_table = pd.read_table(self.mechine, names=mechine_col_name, header=0)
+        machine_col_name = ['timestamp', 'cpu-usage', 'memory', 'cpi', 'mkpi', 'llc', 'lmb', 'rmb', 'network-io', 'disk-io']
+        machine_table = pd.read_table(self.machine, names=machine_col_name, header=0)
 
-        mechine_len = len(mechine_table)
+        machine_len = len(machine_table)
         output_list = []
 
         for _, row in stress_table.iterrows():
-            if self.mechine_index >= mechine_len:
+            if self.machine_index >= machine_len:
                 break
 
             begin_timestamp = row['begin-timestamp']
             end_timestamp = row['end-timestamp']
-            average_cpu_usage = self.__get_rangetime_cpu_usage(begin_timestamp, end_timestamp, mechine_table)
+            average_cpu_usage = self.__get_rangetime_cpu_usage(begin_timestamp, end_timestamp, machine_table)
             output_list.append({"type": row['type'], "stress": row['stress'], "avg-cpu-usage": average_cpu_usage})
 
         # type stress avg-cpu-usage
         output_table = pd.DataFrame.from_records(output_list, columns=['type', 'stress', 'avg-cpu-usage'])
         output_table.to_csv(self.output, index=False)
                 
-    def __get_rangetime_cpu_usage(self, begin_time, end_time, mechine_table):
-        mechine_len = len(mechine_table)
-        if self.mechine_index >= mechine_len:
+    def __get_rangetime_cpu_usage(self, begin_time, end_time, machine_table):
+        machine_len = len(machine_table)
+        if self.machine_index >= machine_len:
             return 0
 
         if begin_time is not None:
-            while self.__compare_stimestamp_gt(begin_time, mechine_table.at[self.mechine_index, 'timestamp']):
-                self.mechine_index += 1
-                if self.mechine_index >= mechine_len:
+            while self.__compare_stimestamp_gt(begin_time, machine_table.at[self.machine_index, 'timestamp']):
+                self.machine_index += 1
+                if self.machine_index >= machine_len:
                     return 0
-        begin_index = self.mechine_index
+        begin_index = self.machine_index
 
-        while self.__compare_stimestamp_gt(end_time, mechine_table.at[self.mechine_index, 'timestamp']):
-            self.mechine_index += 1
-            if self.mechine_index >= mechine_len:
+        while self.__compare_stimestamp_gt(end_time, machine_table.at[self.machine_index, 'timestamp']):
+            self.machine_index += 1
+            if self.machine_index >= machine_len:
                 break
-        end_index = self.mechine_index
+        end_index = self.machine_index
 
-        return np.mean(mechine_table[begin_index:end_index]["cpu-usage"])
+        return np.mean(machine_table[begin_index:end_index]["cpu-usage"])
 
     def __compare_stimestamp_gt(self, time1, time2):
         time1_st = int(time.mktime(time.strptime(
