@@ -131,7 +131,7 @@ def get_usage_chart(data, symbol):
         .mark_line()
         .encode(
             x=alt.X("stress:Q", axis=alt.Axis(orient="top")),
-            y=alt.Y("avg-cpu-usage:Q", sort='descending',
+            y=alt.Y("avg-cpu-usage:Q",
                     title="cpu usage percent(%)"),
             color="type",
             strokeDash="type",
