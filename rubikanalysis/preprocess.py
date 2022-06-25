@@ -23,49 +23,93 @@ class Preprocess(object):
         """
         self.__load_and_generate_output()
 
+    def load_table(self, path):
+        """some preprocessing on table
+
+        1) load table, set timestamp as first column instead of index column
+        2) drop duplicate rows based on column timestamp, keep first row
+        3) reset index
+        """
+        table = pd.read_table(path, header=0, sep=",")
+        first_column = table.columns.tolist()[0]
+        table.drop_duplicates(subset=first_column, keep="first", inplace=True)
+        table = table.reset_index(drop=True)
+        return table, first_column
+
     def __load_and_generate_output(self):
-        # timestamp,context-switches,branch-misses,......
-        metrics = pd.read_table(self.metrics, header=0, sep=',', index_col=0)
-        # timestamp qos
-        qos = pd.read_table(self.qos, header=0, index_col=0)
-        metrics_timestamps = list(metrics.index)
-        qos_timestamps = list(qos.index)
-        metrics_filted_result = []
-        qos_filted_result = []
-        if len(metrics_timestamps) > len(qos_timestamps):
-            metrics_filted_result, qos_filted_result = self.__match_and_filter(
-                metrics_timestamps, qos_timestamps)
-        else:
-            qos_filted_result, metrics_filted_result = self.__match_and_filter(
-                qos_timestamps, metrics_timestamps)
+        # metric table: timestamp,context-switches,branch-misses,......
+        metrics, metric_first_column = self.load_table(self.metrics)
+        # qos table:timestamp,qos
+        qos, qos_first_column = self.load_table(self.qos)
 
-        output_table = metrics.loc[metrics_filted_result]
-        qos_table = qos.loc[qos_filted_result]
-        qos_table.to_csv("qos.csv")
-        col = qos_table.iloc[:, 0]
-        output_table.insert(output_table.shape[1], 'qos', col.values)
-        output_table.to_csv(self.output)
+        metrics_timestamps = metrics[metric_first_column].tolist()
+        qos_timestamps = qos[qos_first_column].tolist()
 
-    def __match_and_filter(self, broad_pd, narrow_pd):
-        i = 0
-        diff = sys.maxsize
-        broad_tss = []
-        narrow_tss = []
-        for index_ts in narrow_pd:
-            base_ts = int(time.mktime(
-                time.strptime(index_ts, "%Y-%m-%d %H:%M:%S")))
-            cmp_ts = int(time.mktime(time.strptime(
-                broad_pd[i], "%Y-%m-%d %H:%M:%S")))
-            while abs(cmp_ts-base_ts) < diff and i < len(broad_pd) - 1:
-                diff = min(diff, abs(cmp_ts-base_ts))
-                i = i + 1
-                cmp_ts = int(time.mktime(time.strptime(
-                    broad_pd[i], "%Y-%m-%d %H:%M:%S")))
-            broad_tss.append(broad_pd[i-1])
-            narrow_tss.append(index_ts)
-            diff = sys.maxsize
+        # get matched index list
+        qos_filted_index, metrics_filted_index = self.__match_and_filter(
+            qos_timestamps, metrics_timestamps
+        )
+        assert len(qos_filted_index) == len(metrics_filted_index)
 
-        return broad_tss, narrow_tss
+        output_table = metrics.loc[metrics_filted_index]
+
+        qos_filtered = qos.loc[qos_filted_index]
+        qos_filtered.to_csv("qos.csv")
+        col = qos_filtered.iloc[:, 1]
+
+        output_table.insert(output_table.shape[1], "qos", col.values)
+        output_table.to_csv(self.output, index=False)
+
+    def __match_and_filter(self, qos_timestamps, metrics_timestamps):
+        """get matched index
+        Args:
+           qos_timestamps: timestamp column of qos table
+           metrics_timestamps: timestamp column of metric table
+        """
+        # should we expand qos table to get more data samples?
+        qos_tss, metric_tss = [], []
+
+        get_metrix_ts = lambda idx: int(
+            time.mktime(time.strptime(metrics_timestamps[idx], "%Y-%m-%d %H:%M:%S"))
+        )
+        get_qos_ts = lambda idx: int(
+            time.mktime(time.strptime(qos_timestamps[idx], "%Y-%m-%d %H:%M:%S"))
+        )
+
+        qos_index, metric_index = 0, 0
+        # max time difference (in seconds) we can tolerate. AFAIAC 5 seconds is appropriate.
+        max_diff = 5
+
+        qos_ts = get_qos_ts(qos_index)
+        metric_ts = get_metrix_ts(metric_index)
+
+        while True:
+            while abs(qos_ts - metric_ts) > max_diff:
+                if qos_ts < metric_ts:
+                    qos_index += 1
+                else:
+                    metric_index += 1
+                if qos_index >= len(qos_timestamps) or metric_index >= len(
+                    metrics_timestamps
+                ):
+                    break
+                qos_ts = get_qos_ts(qos_index)
+                metric_ts = get_metrix_ts(metric_index)
+
+            if qos_index >= len(qos_timestamps) or metric_index >= len(
+                metrics_timestamps
+            ):
+                break
+            # append ideal index
+            qos_tss.append(qos_index)
+            metric_tss.append(metric_index)
+
+            # increase index after append
+            qos_index += 1
+            metric_index += 1
+
+        return qos_tss, metric_tss
+
 
 class StressProcess(object):
     def __init__(self, stress, qos, output):
@@ -86,7 +130,7 @@ class StressProcess(object):
         stress_table = pd.read_table(self.stress, names=stress_col_name, header=0)
         # timestamp qos
         qos_col_name = ['timestamp', 'qos']
-        qos_table = pd.read_table(self.qos, names=qos_col_name, header=0)
+        qos_table = pd.read_table(self.qos, names=qos_col_name, header=0, seq=",")
 
         qos_len = len(qos_table)
         output_list = []
