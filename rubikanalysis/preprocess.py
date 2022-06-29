@@ -155,7 +155,7 @@ class StressProcess(object):
         for index, row in output_table.iterrows():
             if abs(row['stress']) <= 1e-5:
                 no_stress_qos = row['avg-qos']
-            row['degradation-percent'] = 100 * (row['avg-qos'] - no_stress_qos) / no_stress_qos
+            row['degradation-percent'] = 100 * abs(row['avg-qos'] - no_stress_qos) / no_stress_qos
             output_table.iloc[index] = row
 
         output_table.to_csv(self.output, index=False)
