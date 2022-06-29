@@ -10,12 +10,14 @@ import time
 import sys
 import pandas as pd
 import numpy as np
+from overrides import overrides
 
 class Preprocess(object):
-    def __init__(self, metrics, qos, output):
+    def __init__(self, metrics, qos, output, diff):
         self.metrics = metrics
         self.qos = qos
         self.output = output
+        self.diff = diff
 
     def execute(self) -> None:
         """
@@ -42,6 +44,9 @@ class Preprocess(object):
         # qos table:timestamp,qos
         qos, qos_first_column = self.load_table(self.qos)
 
+        self.generate_output(metrics, metric_first_column, qos, qos_first_column)
+
+    def generate_output(self, metrics, metric_first_column, qos, qos_first_column):
         metrics_timestamps = metrics[metric_first_column].tolist()
         qos_timestamps = qos[qos_first_column].tolist()
 
@@ -76,29 +81,29 @@ class Preprocess(object):
             time.mktime(time.strptime(qos_timestamps[idx], "%Y-%m-%d %H:%M:%S"))
         )
 
+        index_valid = lambda: qos_index < len(qos_timestamps) and metric_index < len(
+            metrics_timestamps
+        )
+
         qos_index, metric_index = 0, 0
         # max time difference (in seconds) we can tolerate. AFAIAC 5 seconds is appropriate.
-        max_diff = 5
+        max_diff = self.diff
 
-        qos_ts = get_qos_ts(qos_index)
-        metric_ts = get_metrix_ts(metric_index)
+        while index_valid():
+            qos_ts = get_qos_ts(qos_index)
+            metric_ts = get_metrix_ts(metric_index)
 
-        while True:
             while abs(qos_ts - metric_ts) > max_diff:
                 if qos_ts < metric_ts:
                     qos_index += 1
                 else:
                     metric_index += 1
-                if qos_index >= len(qos_timestamps) or metric_index >= len(
-                    metrics_timestamps
-                ):
+                if not index_valid():
                     break
                 qos_ts = get_qos_ts(qos_index)
                 metric_ts = get_metrix_ts(metric_index)
 
-            if qos_index >= len(qos_timestamps) or metric_index >= len(
-                metrics_timestamps
-            ):
+            if not index_valid():
                 break
             # append ideal index
             qos_tss.append(qos_index)
@@ -109,7 +114,6 @@ class Preprocess(object):
             metric_index += 1
 
         return qos_tss, metric_tss
-
 
 class StressProcess(object):
     def __init__(self, stress, qos, output):
@@ -130,7 +134,7 @@ class StressProcess(object):
         stress_table = pd.read_table(self.stress, names=stress_col_name, header=0)
         # timestamp qos
         qos_col_name = ['timestamp', 'qos']
-        qos_table = pd.read_table(self.qos, names=qos_col_name, header=0, seq=",")
+        qos_table = pd.read_table(self.qos, names=qos_col_name, header=0, sep=",")
 
         qos_len = len(qos_table)
         output_list = []
@@ -252,3 +256,50 @@ class MachineProcess(object):
             time2, "%Y-%m-%d %H:%M:%S")))
 
         return time1_st > time2_st
+
+class BccProcess(Preprocess):
+    def __init__(self, metrics, qos, output, diff):
+        super().__init__(metrics, qos, output, diff)
+
+    @overrides
+    def execute(self) -> None:
+        """
+        Execute preprocessing
+        """
+        self.__load_and_generate_output()
+
+    def __load_and_generate_output(self):
+        qos, qos_first_column = self.load_table(self.qos)
+        bcc, bcc_first_column = self.load_bcc()
+        self.generate_output(bcc, bcc_first_column, qos, qos_first_column)
+
+    def load_bcc(self):
+        """load_bcc
+        accunmulate bcc distributing.
+        """
+        lines, outs = [], []
+
+        with open(self.metrics, "r") as f:
+            for line in f.readlines()[1:]:
+                l = line.split(",")
+                if len(l) > 1:
+                    lines.append(l)
+
+        length = max([len(line) for line in lines])
+        columns = ["timestamp"]
+        columns.extend([i for i in range(length - 1)])
+
+        for line in lines:
+            data = [float(line[1])]
+            for i, num in enumerate(line):
+                if i == 0 or i == 1:
+                    continue
+                data.append(data[-1] + float(num))
+            data.extend([data[-1]] * (length - 1 - len(data)))
+
+            row = [line[0]]
+            row.extend(["{:.3f}".format(num) for num in data])
+            outs.append(row)
+
+        df = pd.DataFrame(outs, columns=columns)
+        return df, df.columns.tolist()[0]
