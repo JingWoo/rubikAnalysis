@@ -1,11 +1,14 @@
 import argparse
-
-from . import Preprocess, StressProcess, MachineProcess
-
+from rubikanalysis.preprocess import Preprocess, StressProcess, MachineProcess, BccProcess
 
 def preprocess_main(args):
-    preprocess = Preprocess(args.metrics, args.qos, args.output)
-    preprocess.execute()
+    if args.type == "perf":
+        preprocess = Preprocess(args.metrics, args.qos, args.output, args.diff)
+        preprocess.execute()
+
+    if args.type == "bcc":
+        bccprocess = BccProcess(args.metrics, args.qos, args.output, args.diff)
+        bccprocess.execute()
 
 
 def stress_process_main(args):
@@ -36,6 +39,10 @@ def main() -> None:
     # create the parser for the "preprocess" command
     parser_preprocess = subparsers.add_parser(
         'preprocess', help='Indicator data preprocessing')
+    parser_preprocess.add_argument(
+        '-t', "--type", type=str, help='Metrics type, perf or bcc', required=False, default="perf")
+    parser_preprocess.add_argument(
+        '-d', "--diff", type=int, help='Max second gap when match timestamp', required=False, default=5)
     parser_preprocess.add_argument(
         '-m', "--metrics", type=str, help='Low level metrics', required=True)
     parser_preprocess.add_argument(
